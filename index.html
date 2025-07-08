@@ -1,0 +1,195 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🛠️ PromptRefiner.ai</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #0f0f0f, #1e1e1e);
+      color: #e0e0e0;
+      padding: 2rem;
+      transition: background 0.4s, color 0.4s;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .card {
+      background-color: #1e1e1e;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      animation: fadeInUp 0.6s ease;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    textarea, .output-box {
+      width: 100%;
+      background-color: #111;
+      color: #fff;
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      transition: all 0.3s ease;
+    }
+    textarea:focus {
+      box-shadow: 0 0 10px #4A90E2;
+      transform: scale(1.01);
+    }
+    .btn {
+      background-color: #4A90E2;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.15s ease;
+    }
+    .btn:hover {
+      background-color: #5aa1f0;
+      transform: scale(1.05);
+    }
+    .btn:active {
+      transform: scale(0.95);
+    }
+    .output-box {
+      white-space: pre-wrap;
+      animation: slideIn 0.6s ease-in-out;
+      min-height: 200px;
+    }
+    @keyframes slideIn {
+      0% { transform: translateY(20px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+    .thinking {
+      animation: pulseGlow 1.2s infinite alternate;
+    }
+    @keyframes pulseGlow {
+      from { box-shadow: 0 0 10px #4A90E2; }
+      to { box-shadow: 0 0 25px #4A90E2; }
+    }
+    .toggle-mode {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      cursor: pointer;
+      padding: 0.5rem 1rem;
+      background: #333;
+      color: #fff;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+    }
+    .toggle-mode:hover {
+      background: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="toggle-mode" id="modeToggle">🌙 Dark Mode</div>
+  <div class="container">
+    <h1>🛠️ PromptRefiner.ai</h1>
+    <p>Refine flagged prompts using Gemini 2.5 Pro with built-in thinking & compliance logic.</p>
+    <div class="card">
+      <textarea id="prompt-input" placeholder="Paste your flagged prompt..."></textarea>
+      <button class="btn" id="refine-button">✨ Refine Prompt</button>
+      <button class="btn" id="download-button" style="margin-top: 0.75rem; display: none;">📄 Download Report</button>
+      <div id="output-area" class="output-box">
+        Your refined, policy-compliant prompt will appear here...
+      </div>
+    </div>
+  </div>  <script type="module">
+    import { GoogleGenAI } from "https://esm.run/@google/genai";
+
+    const ai = new GoogleGenAI({
+      apiKey: "AIzaSyD3xxOsAR5qJlR-0qLCbIgfGlquZq8jASY",
+    });
+
+    const config = {
+      temperature: 1.45,
+      thinkingConfig: {
+        thinkingBudget: -1,
+      },
+      mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
+      responseMimeType: 'text/plain',
+      systemInstruction: [
+        {
+          text: `You are an expert-level prompt engineer and content strategist with advanced persuasive and diplomatic communication skills... [shortened for brevity]`
+        },
+      ],
+    };
+
+    const modelName = "gemini-2.5-pro";
+    const refineButton = document.getElementById("refine-button");
+    const promptInput = document.getElementById("prompt-input");
+    const outputArea = document.getElementById("output-area");
+    const downloadButton = document.getElementById("download-button");
+    const modeToggle = document.getElementById("modeToggle");
+
+    refineButton.addEventListener("click", async () => {
+      const userPrompt = promptInput.value.trim();
+      if (!userPrompt) return;
+
+      outputArea.textContent = "⏳ Thinking... Please wait...";
+      outputArea.classList.add("thinking");
+      downloadButton.style.display = 'none';
+
+      const contents = [
+        { role: 'user', parts: [{ text: `Hello` }] },
+        {
+          role: 'model',
+          parts: [{ text: `Hello! I'm ready to help. Please share the original prompt or content that was flagged or rejected.` }],
+        },
+        { role: 'user', parts: [{ text: userPrompt }] },
+      ];
+
+      try {
+        const response = await ai.models.generateContentStream({
+          model: modelName,
+          config,
+          contents,
+        });
+
+        let finalText = "";
+        for await (const chunk of response) {
+          finalText += chunk.text;
+          outputArea.textContent = finalText;
+        }
+        outputArea.classList.remove("thinking");
+        downloadButton.style.display = 'inline-block';
+
+      } catch (err) {
+        console.error(err);
+        outputArea.classList.remove("thinking");
+        outputArea.textContent = "❌ An error occurred while processing your prompt.";
+      }
+    });
+
+    downloadButton.addEventListener("click", () => {
+      const blob = new Blob([outputArea.textContent], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "refined_prompt.txt";
+      link.click();
+    });
+
+    modeToggle.addEventListener("click", () => {
+      const dark = document.body.style.background.includes("#0f0f0f");
+      if (dark) {
+        document.body.style.background = "#ffffff";
+        document.body.style.color = "#111";
+        modeToggle.textContent = "☀️ Light Mode";
+      } else {
+        document.body.style.background = "linear-gradient(135deg, #0f0f0f, #1e1e1e)";
+        document.body.style.color = "#e0e0e0";
+        modeToggle.textContent = "🌙 Dark Mode";
+      }
+    });
+  </script></body>
+</html>
